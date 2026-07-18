@@ -1,6 +1,6 @@
 ﻿# scripts/validate-data.ps1
 # data/validation/cases.csv と data/validation/events.csv、
-# data/research/research_queue.csv を検証する。
+# data/research/research_queue.csv、data/research/watch_sources.csv を検証する。
 # 実行: powershell -ExecutionPolicy Bypass -File scripts/validate-data.ps1
 
 $ErrorActionPreference = 'Stop'
@@ -10,6 +10,7 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 $casesPath = Join-Path $repoRoot 'data\validation\cases.csv'
 $eventsPath = Join-Path $repoRoot 'data\validation\events.csv'
 $researchQueuePath = Join-Path $repoRoot 'data\research\research_queue.csv'
+$watchSourcesPath = Join-Path $repoRoot 'data\research\watch_sources.csv'
 
 $errors = New-Object System.Collections.Generic.List[string]
 
@@ -75,6 +76,14 @@ $allowedDiscoverySource = @(
 $allowedResearchStatus = @('未調査', '調査中', '登録候補', '登録済み', '保留', '対象外', '続報確認待ち')
 
 $allowedPriority = @('高', '中', '低')
+
+$allowedMunicipalityType = @('都道府県', '市', '特別区', '町', '村', '広域連合', '協議会', '官公庁', 'その他')
+
+$allowedWatchSourceType = @('自治体公式', '官公庁', '予算・入札', '議会資料', '企業公式', 'PR TIMES', '報道', 'その他')
+
+$allowedWatchScope = @('新着情報', '報道発表', '入札・プロポーザル', '契約結果', 'DX・AI施策', '個別案件', 'その他')
+
+$allowedCheckFrequency = @('毎日', '週2回', '毎週', '隔週', '毎月', '手動')
 
 # ---- cases.csv ----
 $casesFile = 'cases.csv'
@@ -341,12 +350,119 @@ else {
     }
 }
 
+# ---- watch_sources.csv ----
+$watchSourcesFile = 'watch_sources.csv'
+$watchSourcesDataCount = 0
+
+if (-not (Test-Path $watchSourcesPath)) {
+    Add-ValidationError -File $watchSourcesFile -Line 0 -Column '-' -Message 'ファイルが存在しません'
+}
+else {
+    $watchRows = Read-CsvRows -Path $watchSourcesPath
+    $watchSourceIds = New-Object System.Collections.Generic.HashSet[string]
+
+    if ($watchRows.Count -eq 0) {
+        Add-ValidationError -File $watchSourcesFile -Line 0 -Column '-' -Message 'ファイルが空です'
+    }
+    else {
+        $expectedWatchHeader = @(
+            'source_id', 'organization', 'prefecture', 'municipality_type', 'source_name',
+            'source_url', 'source_type', 'watch_scope', 'keywords', 'check_frequency',
+            'last_checked', 'next_check_date', 'is_active', 'priority', 'notes'
+        )
+        $header = $watchRows[0]
+        if (@(Compare-Object -ReferenceObject $expectedWatchHeader -DifferenceObject $header.Fields -SyncWindow 0).Count -ne 0 -or $header.Fields.Count -ne 15) {
+            Add-ValidationError -File $watchSourcesFile -Line $header.Line -Column '-' -Message "ヘッダーが指定の15列と一致しません（実際: $($header.Fields -join ',')）"
+        }
+
+        for ($i = 1; $i -lt $watchRows.Count; $i++) {
+            $row = $watchRows[$i]
+            $f = $row.Fields
+            $watchSourcesDataCount++
+
+            if ($f.Count -ne 15) {
+                Add-ValidationError -File $watchSourcesFile -Line $row.Line -Column '-' -Message "データ行が15列ではありません（実際: $($f.Count)列）"
+                continue
+            }
+
+            $sourceId = $f[0]
+            if ($sourceId -notmatch '^MWS-[0-9]{4}$') {
+                Add-ValidationError -File $watchSourcesFile -Line $row.Line -Column 'source_id' -Message "形式が不正です: $sourceId"
+            }
+            elseif (-not $watchSourceIds.Add($sourceId)) {
+                Add-ValidationError -File $watchSourcesFile -Line $row.Line -Column 'source_id' -Message "source_idが重複しています: $sourceId"
+            }
+
+            $organization = $f[1]
+            if ([string]::IsNullOrEmpty($organization)) {
+                Add-ValidationError -File $watchSourcesFile -Line $row.Line -Column 'organization' -Message '空欄です'
+            }
+
+            $prefecture = $f[2]
+            if ([string]::IsNullOrEmpty($prefecture)) {
+                Add-ValidationError -File $watchSourcesFile -Line $row.Line -Column 'prefecture' -Message '空欄です'
+            }
+
+            $municipalityType = $f[3]
+            if ($municipalityType -notin $allowedMunicipalityType) {
+                Add-ValidationError -File $watchSourcesFile -Line $row.Line -Column 'municipality_type' -Message "許可されていない値です: $municipalityType"
+            }
+
+            $sourceName = $f[4]
+            if ([string]::IsNullOrEmpty($sourceName)) {
+                Add-ValidationError -File $watchSourcesFile -Line $row.Line -Column 'source_name' -Message '空欄です'
+            }
+
+            $sourceUrl = $f[5]
+            if ($sourceUrl -notlike 'https://*') {
+                Add-ValidationError -File $watchSourcesFile -Line $row.Line -Column 'source_url' -Message "https://で始まっていません: $sourceUrl"
+            }
+
+            $sourceType = $f[6]
+            if ($sourceType -notin $allowedWatchSourceType) {
+                Add-ValidationError -File $watchSourcesFile -Line $row.Line -Column 'source_type' -Message "許可されていない値です: $sourceType"
+            }
+
+            $watchScope = $f[7]
+            if ($watchScope -notin $allowedWatchScope) {
+                Add-ValidationError -File $watchSourcesFile -Line $row.Line -Column 'watch_scope' -Message "許可されていない値です: $watchScope"
+            }
+
+            $checkFrequency = $f[9]
+            if ($checkFrequency -notin $allowedCheckFrequency) {
+                Add-ValidationError -File $watchSourcesFile -Line $row.Line -Column 'check_frequency' -Message "許可されていない値です: $checkFrequency"
+            }
+
+            $lastChecked = $f[10]
+            if (-not (Test-DateOrUnknown $lastChecked)) {
+                Add-ValidationError -File $watchSourcesFile -Line $row.Line -Column 'last_checked' -Message "YYYY-MM-DDまたはunknownではありません: $lastChecked"
+            }
+
+            $nextCheckDate = $f[11]
+            if (-not (Test-DateOrUnknown $nextCheckDate)) {
+                Add-ValidationError -File $watchSourcesFile -Line $row.Line -Column 'next_check_date' -Message "YYYY-MM-DDまたはunknownではありません: $nextCheckDate"
+            }
+
+            $isActive = $f[12]
+            if ($isActive -notin @('true', 'false')) {
+                Add-ValidationError -File $watchSourcesFile -Line $row.Line -Column 'is_active' -Message "true/false以外の値です: $isActive"
+            }
+
+            $priority = $f[13]
+            if ($priority -notin $allowedPriority) {
+                Add-ValidationError -File $watchSourcesFile -Line $row.Line -Column 'priority' -Message "許可されていない値です: $priority"
+            }
+        }
+    }
+}
+
 # ---- 結果出力 ----
 if ($errors.Count -eq 0) {
     Write-Output 'Validation passed'
     Write-Output "Cases: $caseDataCount"
     Write-Output "Events: $eventDataCount"
     Write-Output "Research queue: $researchQueueDataCount"
+    Write-Output "Watch sources: $watchSourcesDataCount"
     Write-Output 'Errors: 0'
     exit 0
 }
@@ -358,6 +474,7 @@ else {
     Write-Output "Cases: $caseDataCount"
     Write-Output "Events: $eventDataCount"
     Write-Output "Research queue: $researchQueueDataCount"
+    Write-Output "Watch sources: $watchSourcesDataCount"
     Write-Output "Errors: $($errors.Count)"
     exit 1
 }

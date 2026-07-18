@@ -1,10 +1,46 @@
 # data/research/README.md
 
-このディレクトリは、正式登録前の調査候補・続報候補・修正候補を管理する
-research_queue.csv を格納する。
+このディレクトリは、半自走調査のための情報源台帳 watch_sources.csv と、
+正式登録前の調査候補・続報候補・修正候補を管理する research_queue.csv を格納する。
 
 入力時に守るべき全般ルールは [CLAUDE.md](../../CLAUDE.md) を、
 正式案件データの入力ルールは [data/validation/README.md](../validation/README.md) を参照すること。
+
+## 4つのファイルの役割
+
+- **watch_sources.csv**：定期監視する情報源（自治体公式サイト・官公庁・入札情報等）の台帳。
+- **research_queue.csv**：定期監視や手動調査で発見した未検証の候補を管理する台帳。
+- **cases.csv**：検証済み案件の現在の状態を管理する（[data/validation/](../validation/)）。
+- **events.csv**：検証済み案件の時系列イベントを管理する（[data/validation/](../validation/)）。
+
+watch_sources.csv から cases.csv・events.csv へ自動登録は行わない。
+監視や調査で発見した情報は、まず research_queue.csv へ登録し、
+人間による確認を経てから cases.csv・events.csv へ反映する。
+
+is_active が false の情報源は、監視処理の対象外とする。
+next_check_date は、将来の定期監視処理が次回確認日を判断するために利用する。
+情報源の優先順位は自治体公式・官公庁など一次情報を優先し、
+報道・PR TIMES等は一次情報の裏付け確認に利用する。
+
+## watch_sources.csv の列定義（15列）
+
+| 列名 | 内容 | 入力ルール |
+|---|---|---|
+| source_id | 情報源を一意に識別するID | `MWS-0001` 形式（正規表現 `^MWS-[0-9]{4}$`）。重複禁止。 |
+| organization | 監視対象の自治体・官公庁・協議会等 | データ行では必須。空欄不可。 |
+| prefecture | 都道府県名 | データ行では必須。特定できない場合は `unknown`。 |
+| municipality_type | 組織区分 | `都道府県` / `市` / `特別区` / `町` / `村` / `広域連合` / `協議会` / `官公庁` / `その他` のいずれか。 |
+| source_name | 監視ページの名称 | データ行では必須。空欄不可。 |
+| source_url | 監視対象のURL | `https://` で始まることを必須とする。 |
+| source_type | 情報源の種類 | `自治体公式` / `官公庁` / `予算・入札` / `議会資料` / `企業公式` / `PR TIMES` / `報道` / `その他` のいずれか。 |
+| watch_scope | 監視する情報の種類 | `新着情報` / `報道発表` / `入札・プロポーザル` / `契約結果` / `DX・AI施策` / `個別案件` / `その他` のいずれか。 |
+| keywords | 検出対象キーワード | 空欄可。複数値は半角セミコロン `;` 区切り。 |
+| check_frequency | 確認頻度 | `毎日` / `週2回` / `毎週` / `隔週` / `毎月` / `手動` のいずれか。 |
+| last_checked | 最終確認日 | `YYYY-MM-DD` 形式または `unknown`。 |
+| next_check_date | 次回確認予定日 | `YYYY-MM-DD` 形式または `unknown`。 |
+| is_active | 監視を有効にするか | `true` または `false` のみ。 |
+| priority | 監視優先度 | `高` / `中` / `低` のいずれか。 |
+| notes | 補足事項 | 空欄可。 |
 
 ## research_queue.csv の目的
 
