@@ -61,6 +61,56 @@ research_queue.csv は、次の3種類の候補を一時的に管理するため
 research_queue.csv の候補は、調査・確認が完了して初めて cases.csv / events.csv へ反映する。
 確認前の情報を cases.csv / events.csv に書き込まない。
 
+## get-due-watch-sources.ps1（確認対象ソースの抽出）
+
+scripts/get-due-watch-sources.ps1 は、watch_sources.csv から
+確認予定日（next_check_date）が本日以前（超過・本日を含む）の
+有効な監視ソースを抽出し、コンソール表示・CSV出力するスクリプトである。
+
+このスクリプトはWebページへアクセスしない。
+監視先の内容確認・差分検出・research_queue.csvへの登録は行わない。
+
+### 使用例
+
+通常実行：
+
+```
+powershell -ExecutionPolicy Bypass -File scripts/get-due-watch-sources.ps1
+```
+
+日付指定：
+
+```
+powershell -ExecutionPolicy Bypass -File scripts/get-due-watch-sources.ps1 -TargetDate 2026-07-19
+```
+
+高優先度だけ：
+
+```
+powershell -ExecutionPolicy Bypass -File scripts/get-due-watch-sources.ps1 -Priority 高
+```
+
+CSV出力：
+
+```
+powershell -ExecutionPolicy Bypass -File scripts/get-due-watch-sources.ps1 -OutputPath reports/monitoring/due-sources.csv
+```
+
+日付とCSV出力：
+
+```
+powershell -ExecutionPolicy Bypass -File scripts/get-due-watch-sources.ps1 -TargetDate 2026-07-19 -OutputPath reports/monitoring/due-sources-2026-07-19.csv
+```
+
+### 運用ルール
+
+- 通常は is_active=true だけを対象にする（-IncludeInactive を指定した場合のみ false も集計対象に含める）。
+- next_check_date=unknown は確認対象に自動選出されない。
+- 確認後は watch_sources.csv の last_checked と next_check_date を更新する。
+- このスクリプトはWebページへアクセスしない。
+- このスクリプトは research_queue.csv を変更しない。
+- 監視で発見した情報は人間確認後に research_queue.csv へ登録する。
+
 ## 列定義（14列）
 
 | 列名 | 内容 | 入力ルール |
