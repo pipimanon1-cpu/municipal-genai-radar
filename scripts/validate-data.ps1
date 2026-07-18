@@ -51,10 +51,12 @@ function Test-IntegerOrUnknown {
 $allowedCurrentStatus = @(
     '情報収集中', '検討・方針策定', '連携協定', '実証予定', '実証中',
     '実証結果公表', '調達・公募', '契約・採択', '本導入', '共同利用',
-    '効果検証', '他自治体展開', '終了', '続報なし'
+    '効果検証', '他自治体展開', '終了', '続報未確認'
 )
 
 $allowedSourceType = @('自治体公式', '企業公式', '官公庁', '議会資料', '予算・入札', '報道', 'その他')
+
+$allowedQuantitativeResultType = @('実測', '実測からの推計', '事前試算', '目標', '定性評価', 'unknown')
 
 $allowedEventType = @(
     '構想発表', '連携協定', '公募開始', '採択・契約', '実証開始', '実証終了',
@@ -73,8 +75,8 @@ if ($casesRows.Count -eq 0) {
 }
 else {
     $header = $casesRows[0]
-    if ($header.Fields.Count -ne 29) {
-        Add-ValidationError -File $casesFile -Line $header.Line -Column '-' -Message "ヘッダーが29列ではありません（実際: $($header.Fields.Count)列）"
+    if ($header.Fields.Count -ne 30) {
+        Add-ValidationError -File $casesFile -Line $header.Line -Column '-' -Message "ヘッダーが30列ではありません（実際: $($header.Fields.Count)列）"
     }
 
     for ($i = 1; $i -lt $casesRows.Count; $i++) {
@@ -82,8 +84,8 @@ else {
         $f = $row.Fields
         $caseDataCount++
 
-        if ($f.Count -ne 29) {
-            Add-ValidationError -File $casesFile -Line $row.Line -Column '-' -Message "データ行が29列ではありません（実際: $($f.Count)列）"
+        if ($f.Count -ne 30) {
+            Add-ValidationError -File $casesFile -Line $row.Line -Column '-' -Message "データ行が30列ではありません（実際: $($f.Count)列）"
             continue
         }
 
@@ -100,32 +102,37 @@ else {
             Add-ValidationError -File $casesFile -Line $row.Line -Column 'current_status' -Message "許可されていない値です: $currentStatus"
         }
 
-        foreach ($dateCol in @(@{ Idx = 11; Name = 'announcement_date' }, @{ Idx = 12; Name = 'start_date' }, @{ Idx = 13; Name = 'end_date' }, @{ Idx = 26; Name = 'last_checked' })) {
+        foreach ($dateCol in @(@{ Idx = 11; Name = 'announcement_date' }, @{ Idx = 12; Name = 'start_date' }, @{ Idx = 13; Name = 'end_date' }, @{ Idx = 27; Name = 'last_checked' })) {
             $val = $f[$dateCol.Idx]
             if (-not (Test-DateOrUnknown $val)) {
                 Add-ValidationError -File $casesFile -Line $row.Line -Column $dateCol.Name -Message "YYYY-MM-DDまたはunknownではありません: $val"
             }
         }
 
-        foreach ($boolCol in @(@{ Idx = 19; Name = 'commercialized' }, @{ Idx = 20; Name = 'shared_use' }, @{ Idx = 21; Name = 'expanded_to_other_municipalities' }) ) {
+        $quantitativeResultType = $f[19]
+        if ($quantitativeResultType -notin $allowedQuantitativeResultType) {
+            Add-ValidationError -File $casesFile -Line $row.Line -Column 'quantitative_result_type' -Message "許可されていない値です: $quantitativeResultType"
+        }
+
+        foreach ($boolCol in @(@{ Idx = 20; Name = 'commercialized' }, @{ Idx = 21; Name = 'shared_use' }, @{ Idx = 22; Name = 'expanded_to_other_municipalities' }) ) {
             $val = $f[$boolCol.Idx]
             if (-not (Test-BooleanOrUnknown $val)) {
                 Add-ValidationError -File $casesFile -Line $row.Line -Column $boolCol.Name -Message "true/false/unknown以外の値です: $val"
             }
         }
 
-        $sourceType1 = $f[23]
+        $sourceType1 = $f[24]
         if ($sourceType1 -notin $allowedSourceType) {
             Add-ValidationError -File $casesFile -Line $row.Line -Column 'source_type_1' -Message "許可されていない値です: $sourceType1"
         }
 
-        $sourceUrl1 = $f[22]
+        $sourceUrl1 = $f[23]
         if ($sourceUrl1 -notlike 'https://*') {
             Add-ValidationError -File $casesFile -Line $row.Line -Column 'source_url_1' -Message "https://で始まっていません: $sourceUrl1"
         }
 
-        $sourceUrl2 = $f[24]
-        $sourceType2 = $f[25]
+        $sourceUrl2 = $f[25]
+        $sourceType2 = $f[26]
         if ([string]::IsNullOrEmpty($sourceUrl2)) {
             if (-not [string]::IsNullOrEmpty($sourceType2)) {
                 Add-ValidationError -File $casesFile -Line $row.Line -Column 'source_type_2' -Message 'source_url_2が空欄なのにsource_type_2が空欄ではありません'
