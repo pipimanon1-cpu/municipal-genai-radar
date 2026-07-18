@@ -1,5 +1,6 @@
 ﻿# scripts/validate-data.ps1
-# data/validation/cases.csv と data/validation/events.csv を検証する。
+# data/validation/cases.csv と data/validation/events.csv、
+# data/research/research_queue.csv を検証する。
 # 実行: powershell -ExecutionPolicy Bypass -File scripts/validate-data.ps1
 
 $ErrorActionPreference = 'Stop'
@@ -8,6 +9,7 @@ Add-Type -AssemblyName Microsoft.VisualBasic
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $casesPath = Join-Path $repoRoot 'data\validation\cases.csv'
 $eventsPath = Join-Path $repoRoot 'data\validation\events.csv'
+$researchQueuePath = Join-Path $repoRoot 'data\research\research_queue.csv'
 
 $errors = New-Object System.Collections.Generic.List[string]
 
@@ -63,6 +65,16 @@ $allowedEventType = @(
     '実証結果公表', '本導入', '共同利用開始', '効果公表', '他自治体展開',
     'サービス終了', '続報確認', 'その他'
 )
+
+$allowedResearchType = @('新規案件', '既存案件の続報', 'データ修正候補')
+
+$allowedDiscoverySource = @(
+    '自治体公式', '企業公式', '官公庁', '予算・入札', '議会資料', 'PR TIMES', '報道', 'その他'
+)
+
+$allowedResearchStatus = @('未調査', '調査中', '登録候補', '登録済み', '保留', '対象外', '続報確認待ち')
+
+$allowedPriority = @('高', '中', '低')
 
 # ---- cases.csv ----
 $casesFile = 'cases.csv'
@@ -226,11 +238,115 @@ else {
     }
 }
 
+# ---- research_queue.csv ----
+$researchQueueFile = 'research_queue.csv'
+$researchQueueDataCount = 0
+
+if (-not (Test-Path $researchQueuePath)) {
+    Add-ValidationError -File $researchQueueFile -Line 0 -Column '-' -Message 'ファイルが存在しません'
+}
+else {
+    $queueRows = Read-CsvRows -Path $researchQueuePath
+    $queueIds = New-Object System.Collections.Generic.HashSet[string]
+
+    if ($queueRows.Count -eq 0) {
+        Add-ValidationError -File $researchQueueFile -Line 0 -Column '-' -Message 'ファイルが空です'
+    }
+    else {
+        $expectedHeader = @(
+            'queue_id', 'research_type', 'discovered_date', 'municipality', 'prefecture',
+            'case_title', 'discovery_url', 'discovery_source', 'research_status',
+            'target_case_id', 'priority', 'next_check_date', 'last_updated', 'research_notes'
+        )
+        $header = $queueRows[0]
+        if (@(Compare-Object -ReferenceObject $expectedHeader -DifferenceObject $header.Fields -SyncWindow 0).Count -ne 0 -or $header.Fields.Count -ne 14) {
+            Add-ValidationError -File $researchQueueFile -Line $header.Line -Column '-' -Message "ヘッダーが指定の14列と一致しません（実際: $($header.Fields -join ',')）"
+        }
+
+        for ($i = 1; $i -lt $queueRows.Count; $i++) {
+            $row = $queueRows[$i]
+            $f = $row.Fields
+            $researchQueueDataCount++
+
+            if ($f.Count -ne 14) {
+                Add-ValidationError -File $researchQueueFile -Line $row.Line -Column '-' -Message "データ行が14列ではありません（実際: $($f.Count)列）"
+                continue
+            }
+
+            $queueId = $f[0]
+            if ($queueId -notmatch '^MRQ-[0-9]{4}$') {
+                Add-ValidationError -File $researchQueueFile -Line $row.Line -Column 'queue_id' -Message "形式が不正です: $queueId"
+            }
+            elseif (-not $queueIds.Add($queueId)) {
+                Add-ValidationError -File $researchQueueFile -Line $row.Line -Column 'queue_id' -Message "queue_idが重複しています: $queueId"
+            }
+
+            $researchType = $f[1]
+            if ($researchType -notin $allowedResearchType) {
+                Add-ValidationError -File $researchQueueFile -Line $row.Line -Column 'research_type' -Message "許可されていない値です: $researchType"
+            }
+
+            $discoveredDate = $f[2]
+            if (-not (Test-DateOrUnknown $discoveredDate)) {
+                Add-ValidationError -File $researchQueueFile -Line $row.Line -Column 'discovered_date' -Message "YYYY-MM-DDまたはunknownではありません: $discoveredDate"
+            }
+
+            $discoveryUrl = $f[6]
+            if ($discoveryUrl -notlike 'https://*') {
+                Add-ValidationError -File $researchQueueFile -Line $row.Line -Column 'discovery_url' -Message "https://で始まっていません: $discoveryUrl"
+            }
+
+            $discoverySource = $f[7]
+            if ($discoverySource -notin $allowedDiscoverySource) {
+                Add-ValidationError -File $researchQueueFile -Line $row.Line -Column 'discovery_source' -Message "許可されていない値です: $discoverySource"
+            }
+
+            $researchStatus = $f[8]
+            if ($researchStatus -notin $allowedResearchStatus) {
+                Add-ValidationError -File $researchQueueFile -Line $row.Line -Column 'research_status' -Message "許可されていない値です: $researchStatus"
+            }
+
+            $targetCaseId = $f[9]
+            if ($targetCaseId -ne 'unknown' -and $targetCaseId -notmatch '^MGR-[0-9]{4}$') {
+                Add-ValidationError -File $researchQueueFile -Line $row.Line -Column 'target_case_id' -Message "形式が不正です: $targetCaseId"
+            }
+
+            if ($targetCaseId -eq 'unknown') {
+                if ($researchType -in @('既存案件の続報', 'データ修正候補')) {
+                    Add-ValidationError -File $researchQueueFile -Line $row.Line -Column 'target_case_id' -Message "research_typeが「$researchType」の場合、target_case_idにunknownは使用できません"
+                }
+                if ($researchStatus -eq '登録済み') {
+                    Add-ValidationError -File $researchQueueFile -Line $row.Line -Column 'target_case_id' -Message 'research_statusが「登録済み」の場合、target_case_idにunknownは使用できません'
+                }
+            }
+            elseif ($targetCaseId -match '^MGR-[0-9]{4}$' -and $targetCaseId -notin $caseIds) {
+                Add-ValidationError -File $researchQueueFile -Line $row.Line -Column 'target_case_id' -Message "cases.csvに存在しないcase_idです: $targetCaseId"
+            }
+
+            $priority = $f[10]
+            if ($priority -notin $allowedPriority) {
+                Add-ValidationError -File $researchQueueFile -Line $row.Line -Column 'priority' -Message "許可されていない値です: $priority"
+            }
+
+            $nextCheckDate = $f[11]
+            if (-not (Test-DateOrUnknown $nextCheckDate)) {
+                Add-ValidationError -File $researchQueueFile -Line $row.Line -Column 'next_check_date' -Message "YYYY-MM-DDまたはunknownではありません: $nextCheckDate"
+            }
+
+            $lastUpdated = $f[12]
+            if ($lastUpdated -notmatch '^\d{4}-\d{2}-\d{2}$') {
+                Add-ValidationError -File $researchQueueFile -Line $row.Line -Column 'last_updated' -Message "YYYY-MM-DD形式ではありません: $lastUpdated"
+            }
+        }
+    }
+}
+
 # ---- 結果出力 ----
 if ($errors.Count -eq 0) {
     Write-Output 'Validation passed'
     Write-Output "Cases: $caseDataCount"
     Write-Output "Events: $eventDataCount"
+    Write-Output "Research queue: $researchQueueDataCount"
     Write-Output 'Errors: 0'
     exit 0
 }
@@ -241,6 +357,7 @@ else {
     }
     Write-Output "Cases: $caseDataCount"
     Write-Output "Events: $eventDataCount"
+    Write-Output "Research queue: $researchQueueDataCount"
     Write-Output "Errors: $($errors.Count)"
     exit 1
 }
