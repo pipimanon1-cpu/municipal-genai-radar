@@ -1,0 +1,1 @@
+run_id,source_id,checked_at,check_result,http_status,final_url,page_title,content_hash,previous_content_hash,change_detected,change_type,change_summary,matched_keywords,queue_candidate_status,queue_id,checked_by,human_reviewed,notes
