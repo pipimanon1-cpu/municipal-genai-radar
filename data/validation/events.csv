@@ -1,1 +1,5 @@
 event_id,case_id,event_date,event_type,event_title,event_summary,organization,source_url,source_type,last_checked,human_reviewed,notes
+MGE-000001,MGR-0001,2023-04-18,構想発表,ChatGPT全庁活用実証を発表,横須賀市が全庁を対象とするChatGPT活用実証の実施を公表,横須賀市;株式会社トラストバンク,https://www.city.yokosuka.kanagawa.jp/0835/nagekomi/20230418_chatgpt.html,自治体公式,2026-07-18,false,unknown
+MGE-000002,MGR-0001,2023-04-20,実証開始,ChatGPT全庁活用実証を開始,全職員を対象とするChatGPT活用実証を開始,横須賀市;株式会社トラストバンク,https://www.city.yokosuka.kanagawa.jp/0835/nagekomi/20230418_chatgpt.html,自治体公式,2026-07-18,false,unknown
+MGE-000003,MGR-0001,2023-06-05,実証結果公表,ChatGPT活用実証の結果を公表,約半数の職員が利用し回答者の約8割が業務効率向上または継続利用を評価,横須賀市;株式会社トラストバンク,https://www.city.yokosuka.kanagawa.jp/0835/nagekomi/20230605_chatgpt2.html,自治体公式,2026-07-18,false,unknown
+MGE-000004,MGR-0001,2023-06-05,本導入,ChatGPTの本格実装への移行を公表,実証結果を踏まえて全庁での本格実装へ移行,横須賀市;株式会社トラストバンク,https://www.city.yokosuka.kanagawa.jp/0835/nagekomi/20230605_chatgpt2.html,自治体公式,2026-07-18,false,実証結果公表と同日に本格実装への移行を発表
