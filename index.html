@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>自治体生成AIレーダー（Municipal GenAI Radar）｜初期検証版</title>
+<meta name="description" content="日本の自治体における生成AIの実証・調達・契約・本導入・定量効果・共同利用・続報を案件単位で追跡する公開データベース（初期検証版）">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<a class="skip-link" href="#main">本文へスキップ</a>
+
+<header class="site-header">
+  <div class="header-inner">
+    <div class="brand">
+      <p class="brand-badge">初期検証版</p>
+      <h1 class="brand-title">自治体生成AIレーダー</h1>
+      <p class="brand-title-en">Municipal GenAI Radar</p>
+      <p class="brand-subtitle">自治体における生成AIの実証・調達・本導入・成果・横展開を追跡</p>
+    </div>
+    <nav class="site-nav" aria-label="ページ内リンク">
+      <ul>
+        <li><a href="#overview">概要</a></li>
+        <li><a href="#search">案件を探す</a></li>
+        <li><a href="#analysis">分析</a></li>
+        <li><a href="#about-data">データについて</a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+
+  <section class="hero" id="overview" aria-label="ヒーローエリア">
+    <div class="section-inner">
+      <h2 class="hero-heading">自治体の生成AI導入を、<br>「発表」で終わらせず、その後まで追跡する。</h2>
+      <p class="hero-lead">実証、契約、本導入、定量効果、共同利用、他自治体展開を<br class="hero-lead-break">公開情報に基づいて案件単位で整理しています。</p>
+      <div class="hero-actions">
+        <a href="#search" class="btn btn-primary">案件を検索する</a>
+        <a href="reports/2026-initial-analysis.md" class="btn btn-secondary">初期分析を見る</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="summary" aria-label="サマリーカード">
+    <div class="section-inner">
+      <div class="status-banner" id="load-status" role="status" aria-live="polite">データを読み込んでいます</div>
+      <div class="summary-grid" id="summary-grid" hidden>
+        <div class="summary-card">
+          <p class="summary-number" id="summary-case-count">–</p>
+          <p class="summary-label">登録案件数</p>
+          <p class="summary-desc">本データベースに初期収録した案件の件数</p>
+        </div>
+        <div class="summary-card">
+          <p class="summary-number" id="summary-event-count">–</p>
+          <p class="summary-label">登録イベント数</p>
+          <p class="summary-desc">案件に紐づく時系列イベントの件数</p>
+        </div>
+        <div class="summary-card">
+          <p class="summary-number" id="summary-adopted-count">–</p>
+          <p class="summary-label">本導入</p>
+          <p class="summary-desc">初期収録案件中の確認件数</p>
+        </div>
+        <div class="summary-card">
+          <p class="summary-number" id="summary-unconfirmed-count">–</p>
+          <p class="summary-label">続報未確認</p>
+          <p class="summary-desc">初期収録案件中の確認件数</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="distribution" aria-label="ステータス別分布">
+    <div class="section-inner">
+      <h2 class="section-title">ステータス別分布</h2>
+      <p class="section-note">current_status（現在ステータス）を完全一致で集計しています。割合は初期収録案件に占める割合です。</p>
+      <div class="bar-list" id="status-distribution"></div>
+    </div>
+  </section>
+
+  <section class="distribution" aria-label="カテゴリ別分布">
+    <div class="section-inner">
+      <h2 class="section-title">カテゴリ別分布</h2>
+      <p class="section-note">primary_category（主要カテゴリ）を完全一致で集計しています。案件内容から独自に再分類はしていません。</p>
+      <div class="bar-list" id="category-distribution"></div>
+    </div>
+  </section>
+
+  <section class="search-section" id="search" aria-label="案件検索・絞り込み">
+    <div class="section-inner">
+      <h2 class="section-title">案件を探す</h2>
+      <form id="filter-form" class="filter-form">
+        <div class="filter-row">
+          <div class="filter-field filter-field-wide">
+            <label for="filter-keyword">キーワード検索</label>
+            <input type="search" id="filter-keyword" name="keyword" placeholder="自治体名・企業名・製品名・案件内容など">
+          </div>
+          <div class="filter-field">
+            <label for="filter-prefecture">都道府県</label>
+            <select id="filter-prefecture" name="prefecture">
+              <option value="">すべて</option>
+            </select>
+          </div>
+          <div class="filter-field">
+            <label for="filter-status">現在ステータス</label>
+            <select id="filter-status" name="status">
+              <option value="">すべて</option>
+            </select>
+          </div>
+          <div class="filter-field">
+            <label for="filter-category">主要カテゴリ</label>
+            <select id="filter-category" name="category">
+              <option value="">すべて</option>
+            </select>
+          </div>
+          <div class="filter-field">
+            <label for="filter-result-type">定量結果タイプ</label>
+            <select id="filter-result-type" name="resultType">
+              <option value="">すべて</option>
+            </select>
+          </div>
+          <div class="filter-field filter-field-action">
+            <button type="reset" id="filter-reset" class="btn btn-outline">絞り込み解除</button>
+          </div>
+        </div>
+      </form>
+      <p class="result-count" id="result-count" role="status" aria-live="polite"></p>
+
+      <div id="case-list-wrapper">
+        <table class="case-table" id="case-table">
+          <caption class="visually-hidden">案件一覧</caption>
+          <thead>
+            <tr>
+              <th scope="col">case_id</th>
+              <th scope="col">自治体名</th>
+              <th scope="col">都道府県</th>
+              <th scope="col">案件名</th>
+              <th scope="col">現在ステータス</th>
+              <th scope="col">主要カテゴリ</th>
+              <th scope="col">企業</th>
+              <th scope="col">製品名</th>
+              <th scope="col">定量結果タイプ</th>
+              <th scope="col">最終確認日</th>
+              <th scope="col">詳細</th>
+            </tr>
+          </thead>
+          <tbody id="case-table-body"></tbody>
+        </table>
+        <div class="case-cards" id="case-cards"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="highlights" aria-label="注目案件">
+    <div class="section-inner">
+      <h2 class="section-title">注目案件</h2>
+      <p class="section-note">events.csvに登録された時系列イベント数が多い案件を最大6件表示しています（イベント数の多い順、同数の場合はcase_id昇順）。</p>
+      <div class="highlight-grid" id="highlight-grid"></div>
+    </div>
+  </section>
+
+  <section class="analysis-link" id="analysis" aria-label="分析">
+    <div class="section-inner">
+      <h2 class="section-title">分析</h2>
+      <p class="section-note">初期収録データに基づく分析レポートは以下から確認できます。</p>
+      <a href="reports/2026-initial-analysis.md" class="btn btn-secondary">初期分析を見る（2026年版）</a>
+    </div>
+  </section>
+
+  <section class="about-data" id="about-data" aria-label="データについて">
+    <div class="section-inner">
+      <h2 class="section-title">データについて</h2>
+      <ul class="about-list">
+        <li>公開情報を基に案件単位で整理しています。</li>
+        <li>初期収録案件は全国の自治体全体を代表する統計ではありません。</li>
+        <li>「unknown（未確認）」は事実が存在しないことを意味しません。</li>
+        <li>「続報未確認」は事業終了を意味しません。</li>
+        <li>実測、実測からの推計、事前試算、目標を区別しています。</li>
+        <li>情報は最終確認日時点のものです。</li>
+        <li>各案件の参照元で最新情報を確認する必要があります。</li>
+      </ul>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="section-inner footer-inner">
+    <div>
+      <p class="footer-title">自治体生成AIレーダー</p>
+      <p class="footer-title-en">Municipal GenAI Radar</p>
+      <p class="footer-badge">初期検証版</p>
+    </div>
+    <a href="https://github.com/pipimanon1-cpu/municipal-genai-radar" target="_blank" rel="noopener noreferrer">GitHubリポジトリ</a>
+  </div>
+</footer>
+
+<div class="modal-overlay" id="modal-overlay" hidden>
+  <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <button type="button" class="modal-close" id="modal-close" aria-label="閉じる">×</button>
+    <div id="modal-content"></div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
