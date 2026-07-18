@@ -3,8 +3,8 @@
 
 ## データ検証
 
-data/validation/cases.csv と data/validation/events.csv の形式・整合性を検証する。
+cases.csvとevents.csvの入力内容は、以下のコマンドで検証できます。
 
-```
+```powershell
 powershell -ExecutionPolicy Bypass -File scripts/validate-data.ps1
 ```
