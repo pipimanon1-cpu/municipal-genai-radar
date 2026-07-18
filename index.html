@@ -71,6 +71,25 @@
     </div>
   </section>
 
+  <section class="recent-updates" id="recent-updates" aria-label="最近の追加・更新">
+    <div class="section-inner">
+      <h2 class="section-title">最近の追加・更新</h2>
+      <p class="section-note">自治体生成AIレーダーに最近追加された案件と、新しく確認されたイベントを表示しています。</p>
+
+      <div class="recent-block">
+        <h3 class="recent-subtitle">最近追加された案件</h3>
+        <p class="recent-note">登録順（case_idの番号が大きい順）に基づく表示です。発表日の新しさを意味しません。</p>
+        <div class="recent-grid" id="recent-cases-grid"></div>
+      </div>
+
+      <div class="recent-block">
+        <h3 class="recent-subtitle">最近確認されたイベント</h3>
+        <p class="recent-note">event_dateが確認できるイベントのみを対象とした表示です。</p>
+        <div class="recent-grid" id="recent-events-grid"></div>
+      </div>
+    </div>
+  </section>
+
   <section class="distribution" aria-label="ステータス別分布">
     <div class="section-inner">
       <h2 class="section-title">ステータス別分布</h2>
@@ -122,9 +141,11 @@
           </div>
           <div class="filter-field filter-field-action">
             <button type="reset" id="filter-reset" class="btn btn-outline">絞り込み解除</button>
+            <button type="button" id="filter-share-btn" class="btn btn-quiet">現在の検索条件をコピー</button>
           </div>
         </div>
       </form>
+      <p class="copy-status" id="filter-share-status" role="status" aria-live="polite"></p>
       <p class="result-count" id="result-count" role="status" aria-live="polite"></p>
 
       <div id="case-list-wrapper">

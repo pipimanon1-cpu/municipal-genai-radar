@@ -334,6 +334,112 @@ select:focus-visible {
   font-weight: 600;
 }
 
+/* Recent updates */
+
+.recent-updates {
+  padding: 32px 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.recent-block {
+  margin-top: 24px;
+}
+
+.recent-block:first-of-type {
+  margin-top: 20px;
+}
+
+.recent-subtitle {
+  margin: 0 0 4px;
+  font-size: 1rem;
+  color: var(--color-navy);
+}
+
+.recent-note {
+  margin: 0 0 14px;
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+}
+
+.recent-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+.recent-card {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  background: #fff;
+}
+
+.recent-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.recent-card-title {
+  margin: 4px 0 8px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--color-navy);
+}
+
+.recent-card-muni {
+  margin: 0 0 8px;
+  font-size: 0.85rem;
+  color: var(--color-text);
+}
+
+.recent-card-meta {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin: 0 0 10px;
+}
+
+.recent-card-empty {
+  color: var(--color-text-muted);
+  font-size: 0.88rem;
+}
+
+/* Quiet / copy buttons */
+
+.btn-quiet {
+  background: transparent;
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+  font-size: 0.85rem;
+  padding: 10px 16px;
+}
+
+.btn-quiet:hover {
+  color: var(--color-navy);
+  border-color: var(--color-navy);
+}
+
+.copy-status {
+  margin: 8px 0 0;
+  font-size: 0.82rem;
+  color: var(--color-accent);
+  min-height: 1.2em;
+}
+
+.copy-status.is-error {
+  color: #a13a2a;
+}
+
+.detail-copy-row {
+  margin: 16px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 /* Search / filter */
 
 .search-section {
@@ -381,6 +487,8 @@ select:focus-visible {
 
 .filter-field-action {
   display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .result-count {
@@ -773,6 +881,10 @@ select:focus-visible {
 }
 
 @media (max-width: 720px) {
+  .recent-grid {
+    grid-template-columns: 1fr;
+  }
+
   .case-table {
     display: none;
   }

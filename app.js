@@ -39,8 +39,13 @@ function loadData() {
       renderStatusDistribution();
       renderCategoryDistribution();
       populateFilterOptions();
+      applyUrlParamsToFilterFields();
       applyFilters();
+      updateUrlParamsFromFilters();
       renderHighlights();
+      renderRecentCases();
+      renderRecentEvents();
+      openCaseFromUrlOnLoad();
     })
     .catch(function (err) {
       console.error(err);
@@ -212,6 +217,122 @@ function setText(id, text) {
   if (el) el.textContent = text;
 }
 
+function findCaseById(caseId) {
+  return allCases.filter(function (c) { return c.case_id === caseId; })[0];
+}
+
+function extractNumber(id) {
+  var m = /(\d+)/.exec(id || "");
+  return m ? parseInt(m[0], 10) : -1;
+}
+
+/* ---------- URL パラメータヘルパー ---------- */
+
+function getCurrentUrlParams() {
+  return new URLSearchParams(window.location.search);
+}
+
+function buildUrlFromParams(params) {
+  var qs = params.toString();
+  return window.location.pathname + (qs ? "?" + qs : "") + window.location.hash;
+}
+
+var FILTER_PARAM_FIELDS = [
+  ["filter-keyword", "q"],
+  ["filter-prefecture", "prefecture"],
+  ["filter-status", "status"],
+  ["filter-category", "category"],
+  ["filter-result-type", "result"]
+];
+
+function applyUrlParamsToFilterFields() {
+  var params = getCurrentUrlParams();
+  document.getElementById("filter-keyword").value = params.get("q") || "";
+  FILTER_PARAM_FIELDS.slice(1).forEach(function (pair) {
+    setSelectFromParam(pair[0], params.get(pair[1]));
+  });
+}
+
+function setSelectFromParam(id, value) {
+  var select = document.getElementById(id);
+  if (!value) {
+    select.value = "";
+    return;
+  }
+  var found = Array.prototype.some.call(select.options, function (opt) {
+    return opt.value === value;
+  });
+  select.value = found ? value : "";
+}
+
+function updateUrlParamsFromFilters() {
+  var params = getCurrentUrlParams();
+  FILTER_PARAM_FIELDS.forEach(function (pair) {
+    var val = document.getElementById(pair[0]).value.trim();
+    if (val) {
+      params.set(pair[1], val);
+    } else {
+      params.delete(pair[1]);
+    }
+  });
+  history.replaceState(null, "", buildUrlFromParams(params));
+}
+
+/* ---------- クリップボードコピー ---------- */
+
+function copyTextToClipboard(text) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    return navigator.clipboard.writeText(text);
+  }
+  return new Promise(function (resolve, reject) {
+    try {
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly", "");
+      ta.style.position = "fixed";
+      ta.style.top = "-1000px";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      var ok = false;
+      try {
+        ok = document.execCommand("copy");
+      } catch (execErr) {
+        ok = false;
+      }
+      document.body.removeChild(ta);
+      if (ok) {
+        resolve();
+      } else {
+        reject(new Error("copy command failed"));
+      }
+    } catch (err) {
+      reject(err);
+    }
+  });
+}
+
+function showCopyStatus(elId, message, isError) {
+  var el = document.getElementById(elId);
+  if (!el) return;
+  el.textContent = message;
+  el.classList.toggle("is-error", !!isError);
+  if (el._clearTimer) clearTimeout(el._clearTimer);
+  el._clearTimer = setTimeout(function () {
+    el.textContent = "";
+    el.classList.remove("is-error");
+  }, 4000);
+}
+
+function handleCopyClick(text, statusElId, successMessage) {
+  copyTextToClipboard(text).then(function () {
+    showCopyStatus(statusElId, successMessage || "URLをコピーしました", false);
+  }).catch(function () {
+    showCopyStatus(statusElId, "URLをコピーできませんでした", true);
+  });
+}
+
 /* ---------- 集計 ---------- */
 
 function countBy(list, key) {
@@ -304,14 +425,18 @@ function fillSelect(id, values) {
 
 function setupFilterFormStatic() {
   var form = document.getElementById("filter-form");
-  document.getElementById("filter-keyword").addEventListener("input", applyFilters);
-  document.getElementById("filter-prefecture").addEventListener("change", applyFilters);
-  document.getElementById("filter-status").addEventListener("change", applyFilters);
-  document.getElementById("filter-category").addEventListener("change", applyFilters);
-  document.getElementById("filter-result-type").addEventListener("change", applyFilters);
+  function onFilterChange() {
+    applyFilters();
+    updateUrlParamsFromFilters();
+  }
+  document.getElementById("filter-keyword").addEventListener("input", onFilterChange);
+  document.getElementById("filter-prefecture").addEventListener("change", onFilterChange);
+  document.getElementById("filter-status").addEventListener("change", onFilterChange);
+  document.getElementById("filter-category").addEventListener("change", onFilterChange);
+  document.getElementById("filter-result-type").addEventListener("change", onFilterChange);
   form.addEventListener("submit", function (e) { e.preventDefault(); });
   form.addEventListener("reset", function () {
-    setTimeout(applyFilters, 0);
+    setTimeout(onFilterChange, 0);
   });
 }
 
@@ -427,50 +552,157 @@ function renderHighlights() {
   }).join("");
 }
 
+/* ---------- 最近の追加・更新 ---------- */
+
+function recentCaseCardHtml(c) {
+  return (
+    '<div class="recent-card">' +
+    '<div class="recent-card-top">' + statusBadgeHtml(c.current_status) +
+    '<span class="recent-card-meta">' + esc(c.case_id) + "</span></div>" +
+    '<p class="recent-card-title">' + esc(c.case_title) + "</p>" +
+    '<p class="recent-card-muni">' + esc(c.municipality) + "</p>" +
+    '<p class="recent-card-meta">最終確認日：' + esc(displayValueList(c.last_checked)) + "</p>" +
+    '<button type="button" class="btn btn-outline detail-btn" data-case-id="' + esc(c.case_id) + '">詳細を見る</button>' +
+    "</div>"
+  );
+}
+
+function renderRecentCases() {
+  var container = document.getElementById("recent-cases-grid");
+  var sorted = allCases.slice().sort(function (a, b) {
+    return extractNumber(b.case_id) - extractNumber(a.case_id);
+  }).slice(0, 6);
+  container.innerHTML = sorted.length
+    ? sorted.map(recentCaseCardHtml).join("")
+    : '<p class="recent-card-empty">表示できる案件がありません。</p>';
+}
+
+function recentEventCardHtml(e, municipality) {
+  return (
+    '<div class="recent-card">' +
+    '<div class="recent-card-top"><span class="status-badge">' + esc(e.event_type) + "</span>" +
+    '<span class="recent-card-meta">' + esc(e.event_date) + "</span></div>" +
+    '<p class="recent-card-title">' + esc(e.event_title) + "</p>" +
+    '<p class="recent-card-muni">' + esc(municipality) + "</p>" +
+    '<p class="recent-card-meta">' + esc(e.case_id) + "</p>" +
+    '<button type="button" class="btn btn-outline detail-btn" data-case-id="' + esc(e.case_id) + '">詳細を見る</button>' +
+    "</div>"
+  );
+}
+
+function renderRecentEvents() {
+  var container = document.getElementById("recent-events-grid");
+  var filtered = allEvents.filter(function (e) {
+    return /^\d{4}-\d{2}-\d{2}$/.test(e.event_date || "");
+  });
+  var sorted = filtered.sort(function (a, b) {
+    if (a.event_date !== b.event_date) return b.event_date.localeCompare(a.event_date);
+    return extractNumber(b.event_id) - extractNumber(a.event_id);
+  }).slice(0, 6);
+  container.innerHTML = sorted.length
+    ? sorted.map(function (e) {
+        var c = findCaseById(e.case_id);
+        var municipality = c ? c.municipality : "未確認";
+        return recentEventCardHtml(e, municipality);
+      }).join("")
+    : '<p class="recent-card-empty">表示できるイベントがありません。</p>';
+}
+
 /* ---------- 案件詳細モーダル ---------- */
 
 function setupModalStatic() {
   document.body.addEventListener("click", function (e) {
+    var copyBtn = e.target.closest(".detail-copy-btn");
+    if (copyBtn) {
+      handleCopyClick(window.location.href, "detail-copy-status", "URLをコピーしました");
+      return;
+    }
     var btn = e.target.closest(".detail-btn");
     if (btn) {
-      openCaseDetail(btn.getAttribute("data-case-id"));
+      openCaseDetailFromUser(btn.getAttribute("data-case-id"));
     }
   });
 
-  document.getElementById("modal-close").addEventListener("click", closeModal);
+  document.getElementById("modal-close").addEventListener("click", closeModalFromUser);
 
   document.getElementById("modal-overlay").addEventListener("click", function (e) {
-    if (e.target.id === "modal-overlay") closeModal();
+    if (e.target.id === "modal-overlay") closeModalFromUser();
   });
 
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape") {
       var overlay = document.getElementById("modal-overlay");
-      if (!overlay.hidden) closeModal();
+      if (!overlay.hidden) closeModalFromUser();
+    }
+  });
+
+  document.getElementById("filter-share-btn").addEventListener("click", function () {
+    handleCopyClick(window.location.href, "filter-share-status", "検索条件のURLをコピーしました");
+  });
+
+  window.addEventListener("popstate", function () {
+    if (!allCases.length) return;
+    applyUrlParamsToFilterFields();
+    applyFilters();
+    var caseId = getCurrentUrlParams().get("case");
+    var c = caseId ? findCaseById(caseId) : null;
+    if (c) {
+      showCaseDetailUi(c);
+    } else {
+      hideModalUi();
     }
   });
 }
 
-function openCaseDetail(caseId) {
-  var c = allCases.filter(function (x) { return x.case_id === caseId; })[0];
-  if (!c) return;
-
-  previousActiveElement = document.activeElement;
-  document.getElementById("modal-content").innerHTML = buildDetailHtml(c);
-
+function showCaseDetailUi(c) {
   var overlay = document.getElementById("modal-overlay");
+  if (overlay.hidden) {
+    previousActiveElement = document.activeElement;
+  }
+  document.getElementById("modal-content").innerHTML = buildDetailHtml(c);
   overlay.hidden = false;
   document.body.style.overflow = "hidden";
   document.getElementById("modal-close").focus();
 }
 
-function closeModal() {
+function hideModalUi() {
   var overlay = document.getElementById("modal-overlay");
+  if (overlay.hidden) return;
   overlay.hidden = true;
   document.body.style.overflow = "";
   if (previousActiveElement && typeof previousActiveElement.focus === "function") {
     previousActiveElement.focus();
   }
+}
+
+function openCaseDetailFromUser(caseId) {
+  var c = findCaseById(caseId);
+  if (!c) return;
+  showCaseDetailUi(c);
+  var params = getCurrentUrlParams();
+  params.set("case", caseId);
+  history.pushState({ case: caseId }, "", buildUrlFromParams(params));
+}
+
+function closeModalFromUser() {
+  hideModalUi();
+  var params = getCurrentUrlParams();
+  if (!params.has("case")) return;
+  params.delete("case");
+  history.pushState({ case: null }, "", buildUrlFromParams(params));
+}
+
+function openCaseFromUrlOnLoad() {
+  var params = getCurrentUrlParams();
+  var caseId = params.get("case");
+  if (!caseId) return;
+  var c = findCaseById(caseId);
+  if (!c) {
+    params.delete("case");
+    history.replaceState(null, "", buildUrlFromParams(params));
+    return;
+  }
+  showCaseDetailUi(c);
 }
 
 function buildSourceLinks(c) {
@@ -554,9 +786,16 @@ function buildDetailHtml(c) {
       ? '<ul class="timeline-list">' + sortedEvents.map(eventItemHtml).join("") + "</ul>"
       : '<p class="timeline-empty">この案件の時系列イベントは現在未登録です。</p>');
 
+  var copySection =
+    '<div class="detail-copy-row">' +
+    '<button type="button" class="btn btn-quiet detail-copy-btn">この案件のURLをコピー</button>' +
+    '<span class="copy-status" id="detail-copy-status" role="status" aria-live="polite"></span>' +
+    "</div>";
+
   return (
     '<h3 id="modal-title" class="detail-title">' + esc(c.case_title) + "</h3>" +
     '<p class="detail-id">' + esc(c.case_id) + "</p>" +
+    copySection +
     grid +
     sourceSection +
     timelineSection
