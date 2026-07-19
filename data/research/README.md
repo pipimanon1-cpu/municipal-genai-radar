@@ -165,6 +165,59 @@ powershell -ExecutionPolicy Bypass -File scripts/get-due-watch-sources.ps1 -Targ
 | last_updated | このレコードを最後に更新した日付 | `YYYY-MM-DD` 形式。必須。 |
 | research_notes | 補足事項 | 自由記述。複数の値を並べる場合は半角セミコロン `;` で区切る。空欄可。 |
 
+## record-watch-run.ps1（監視実行結果の記録）
+
+scripts/record-watch-run.ps1 は、与えられた確認結果1件を watch_runs.csv へ追加し、
+同時に watch_sources.csv の該当 source_id の last_checked と next_check_date を更新する
+スクリプトである。前回ハッシュとの比較による change_detected / change_type の判定、
+run_id の採番、書き込み前後の検証、失敗時の両CSV復元も行う。
+
+このスクリプトはWebページへアクセスしない。与えられた確認結果を記録するだけであり、
+ページ取得処理は別の処理が担当する。
+
+### 使用例
+
+DryRunによる判定確認：
+
+```
+powershell -ExecutionPolicy Bypass -File scripts/record-watch-run.ps1 `
+  -SourceId MWS-0002 `
+  -CheckedAt 2026-07-26T10:00:00+09:00 `
+  -CheckResult 成功 `
+  -HttpStatus 200 `
+  -FinalUrl https://example.com/monitoring-page `
+  -PageTitle "監視ページ" `
+  -ContentHash aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa `
+  -QueueCandidateStatus 未判定 `
+  -CheckedBy human `
+  -DryRun
+```
+
+取得失敗の記録例：
+
+```
+powershell -ExecutionPolicy Bypass -File scripts/record-watch-run.ps1 `
+  -SourceId MWS-0002 `
+  -CheckResult 失敗 `
+  -HttpStatus 503 `
+  -FinalUrl https://example.com/monitoring-page `
+  -PageTitle unknown `
+  -ContentHash unknown `
+  -Notes "一時的な取得失敗" `
+  -CheckedBy automation
+```
+
+### 運用ルール
+
+- 最初はDryRunで判定内容を確認する。
+- 実行時にwatch_sourcesとwatch_runsを同時更新する。
+- Web取得は別の処理が担当する。
+- 変更検出だけでcasesやeventsへ直接登録しない。
+- 候補情報はresearch_queueへ送る。
+- 取得失敗も監視履歴として残す。
+- 人間未確認の自動結果はhuman_reviewed=falseとする。
+- AllowBackdatedは履歴修正時だけ使用する。
+
 ## unknown の扱い
 
 - 未確認の項目は空欄にせず、原則として `unknown` を入力する。
