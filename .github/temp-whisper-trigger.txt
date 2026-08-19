@@ -1,2 +1,2 @@
 Temporary trigger for local meeting transcription model artifact.
-Model: large-v3-turbo-q5_0
+Model: large-v3-turbo-q5_0 split
