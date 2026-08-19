@@ -19,16 +19,16 @@ jobs:
           set -euo pipefail
           mkdir -p model
           curl -L --fail --retry 5 --retry-delay 2 \
-            -o model/ggml-small-q5_1.bin \
-            https://github.com/w3xgroup/taskurio-models/releases/download/whisper-models-v1/ggml-small-q5_1.bin
-          echo "ae85e4a935d7a567bd102fe55afc16bb595bdb618e11b2fc7591bc08120411bb  model/ggml-small-q5_1.bin" | sha256sum -c -
-          test "$(stat -c%s model/ggml-small-q5_1.bin)" = "190085487"
+            -o model/ggml-base-q5_1.bin \
+            https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base-q5_1.bin
+          echo "422f1ae452ade6f30a004d7e5c6a43195e4433bc370bf23fac9cc591f01a8898  model/ggml-base-q5_1.bin" | sha256sum -c -
+          test "$(stat -c%s model/ggml-base-q5_1.bin)" = "59707625"
 
       - name: Upload model artifact
         uses: actions/upload-artifact@v4
         with:
-          name: whisper-small-q5_1-verified
-          path: model/ggml-small-q5_1.bin
+          name: whisper-base-q5_1-verified
+          path: model/ggml-base-q5_1.bin
           retention-days: 1
           compression-level: 0
           if-no-files-found: error
