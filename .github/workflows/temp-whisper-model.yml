@@ -9,48 +9,30 @@ permissions:
   contents: read
 
 jobs:
-  package-model:
+  package-runtime:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
     steps:
-      - name: Download Linux wheels
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Download Linux wheels for Python 3.13
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p package/wheels
           python -m pip download --only-binary=:all: faster-whisper -d package/wheels
+          python --version
+          find package/wheels -type f -printf '%f %s\n' | sort
           du -sh package/wheels
-
-      - name: Download faster-whisper small model
-        shell: bash
-        run: |
-          set -euo pipefail
-          python -m pip install --quiet huggingface_hub
-          python - <<'PY'
-          from huggingface_hub import snapshot_download
-          snapshot_download(
-              repo_id='Systran/faster-whisper-small',
-              local_dir='package/model',
-              local_dir_use_symlinks=False,
-          )
-          PY
-          find package/model -type f -printf '%P %s\n' | sort
-          du -sh package/model
 
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
-          name: faster-whisper-linux-wheels
+          name: faster-whisper-linux-wheels-py313
           path: package/wheels
-          retention-days: 1
-          compression-level: 0
-          if-no-files-found: error
-
-      - name: Upload model
-        uses: actions/upload-artifact@v4
-        with:
-          name: faster-whisper-small-model
-          path: package/model
           retention-days: 1
           compression-level: 0
           if-no-files-found: error
