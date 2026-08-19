@@ -1,0 +1,34 @@
+name: Temporary Whisper Model Bridge
+
+on:
+  pull_request:
+    paths:
+      - .github/temp-whisper-trigger.txt
+
+permissions:
+  contents: read
+
+jobs:
+  package-model:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Download verified multilingual Whisper model
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p model
+          curl -L --fail --retry 5 --retry-delay 2 \
+            -o model/ggml-small-q5_1.bin \
+            https://github.com/w3xgroup/taskurio-models/releases/download/whisper-models-v1/ggml-small-q5_1.bin
+          echo "ae85e4a935d7a567bd102fe55afc16bb595bdb618e11b2fc7591bc08120411bb  model/ggml-small-q5_1.bin" | sha256sum -c -
+          test "$(stat -c%s model/ggml-small-q5_1.bin)" = "190085487"
+
+      - name: Upload model artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: whisper-small-q5_1-verified
+          path: model/ggml-small-q5_1.bin
+          retention-days: 1
+          compression-level: 0
+          if-no-files-found: error
