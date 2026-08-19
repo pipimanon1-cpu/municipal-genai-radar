@@ -1,2 +1,2 @@
 Temporary trigger for local meeting transcription model artifact.
-Runtime: faster-whisper small int8
+Runtime: faster-whisper small int8 py313
