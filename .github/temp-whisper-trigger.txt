@@ -1,2 +1,0 @@
-Temporary trigger for local meeting transcription model artifact.
-Model: faster-whisper large-v3-turbo split
