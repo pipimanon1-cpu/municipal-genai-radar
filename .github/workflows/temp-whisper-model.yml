@@ -13,22 +13,34 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - name: Download verified multilingual Whisper model
+      - name: Download and split verified multilingual Whisper model
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p model
+          mkdir -p model/parts
           curl -L --fail --retry 5 --retry-delay 2 \
             -o model/ggml-large-v3-turbo-q5_0.bin \
             https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q5_0.bin
           echo "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2  model/ggml-large-v3-turbo-q5_0.bin" | sha256sum -c -
           test "$(stat -c%s model/ggml-large-v3-turbo-q5_0.bin)" = "574041195"
+          split -b 300000000 -d -a 1 model/ggml-large-v3-turbo-q5_0.bin model/parts/model.part
+          test "$(stat -c%s model/parts/model.part0)" = "300000000"
+          test "$(stat -c%s model/parts/model.part1)" = "274041195"
 
-      - name: Upload model artifact
+      - name: Upload model part 0
         uses: actions/upload-artifact@v4
         with:
-          name: whisper-large-v3-turbo-q5_0-verified
-          path: model/ggml-large-v3-turbo-q5_0.bin
+          name: whisper-large-v3-turbo-part0
+          path: model/parts/model.part0
+          retention-days: 1
+          compression-level: 0
+          if-no-files-found: error
+
+      - name: Upload model part 1
+        uses: actions/upload-artifact@v4
+        with:
+          name: whisper-large-v3-turbo-part1
+          path: model/parts/model.part1
           retention-days: 1
           compression-level: 0
           if-no-files-found: error
