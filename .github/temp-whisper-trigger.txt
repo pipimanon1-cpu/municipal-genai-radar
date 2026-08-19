@@ -1,1 +1,2 @@
 Temporary trigger for local meeting transcription model artifact.
+Model: base-q5_1
